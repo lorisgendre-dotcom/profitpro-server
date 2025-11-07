@@ -1,14 +1,30 @@
 #!/usr/bin/env python3
 # license_server.py — gestion des licences ProfitPro (avec expiration)
 
+import os
 import sqlite3
 import secrets
 import time
-from flask import Flask, request, jsonify
 import logging
-import json  # <-- utilisé pour api_verify en POST
+import json
+
+from flask import Flask, request, jsonify
+from dotenv import load_dotenv
+import stripe
 
 DB_PATH = "licenses.db"
+
+# --------- Stripe + .env ---------
+load_dotenv()
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+
+STRIPE_PRICE_ID       = os.getenv("STRIPE_PRICE_ID", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
+STRIPE_SUCCESS_URL    = os.getenv("STRIPE_SUCCESS_URL", "https://google.com")
+STRIPE_CANCEL_URL     = os.getenv("STRIPE_CANCEL_URL", "https://google.com")
+# ---------------------------------
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("license_server")
@@ -322,6 +338,37 @@ def api_check_license():
         "expires_at": expires_at if expires_at > 0 else None,
         "expires_at_iso": expires_iso,
     }), 200
+
+# ---------------------- WEBHOOK STRIPE ----------------------
+
+@app.route("/stripe/webhook", methods=["POST"])
+def stripe_webhook():
+    """
+    Webhook Stripe.
+    Utilisé pour créer automatiquement une licence après paiement validé.
+    """
+    payload = request.data
+    sig_header = request.headers.get("Stripe-Signature")
+    endpoint_secret = STRIPE_WEBHOOK_SECRET
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, endpoint_secret
+        )
+    except Exception as e:
+        log.error("Webhook Stripe error: %s", e)
+        return jsonify({"success": False}), 400
+
+    # Événement intéressant : Checkout terminé avec succès
+    if event["type"] == "checkout.session.completed":
+        session = event["data"]["object"]
+        email = session.get("customer_details", {}).get("email")
+
+        if email:
+            key = create_license(email, days_valid=30)
+            log.info("Licence auto créée via Stripe pour %s -> %s", email, key)
+
+    return jsonify({"success": True}), 200
 
 # ------------------------- ping + Main --------------------------
 
