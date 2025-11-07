@@ -17,13 +17,15 @@ DB_PATH = "licenses.db"
 # --------- Stripe + .env ---------
 load_dotenv()
 
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-
+STRIPE_SECRET_KEY     = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_PRICE_ID       = os.getenv("STRIPE_PRICE_ID", "")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 
-STRIPE_SUCCESS_URL    = os.getenv("STRIPE_SUCCESS_URL", "https://google.com")
-STRIPE_CANCEL_URL     = os.getenv("STRIPE_CANCEL_URL", "https://google.com")
+STRIPE_SUCCESS_URL    = os.getenv("STRIPE_SUCCESS_URL", "https://google.com/success")
+STRIPE_CANCEL_URL     = os.getenv("STRIPE_CANCEL_URL", "https://google.com/cancel")
+
+if STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
 # ---------------------------------
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -134,7 +136,7 @@ def bind_account_if_needed(license_key: str, account: str):
     conn.close()
     return lic
 
-# ---------------------- API routes existantes ----------------------
+# ---------------------- API routes admin / health ----------------------
 
 @app.route("/api/health", methods=["GET"])
 def health():
@@ -196,6 +198,7 @@ def api_admin_set_expiry():
     set_license_expiry(license_key, expires_at)
     return jsonify({"status": "OK", "expires_at": expires_at}), 200
 
+# ---------------------- Ancienne vérif POST JSON (non utilisée par EA actuel) ----------------------
 
 @app.route("/api/verify", methods=["POST"])
 def api_verify():
@@ -208,7 +211,6 @@ def api_verify():
       "symbol": "US30"
     }
     """
-    # Parsing JSON robuste pour supporter les payloads un peu "sales" venant de MT5
     try:
         data = request.get_json(force=False, silent=True)
 
@@ -246,32 +248,20 @@ def api_verify():
         set_license_status(license_key, "expired")
         return jsonify({"status": "DENIED", "reason": "expired"}), 200
 
-    # Verrouillage sur compte MT5 (binding au premier appel, puis contrôle)
     lic = bind_account_if_needed(license_key, account)
     if lic and lic.get("mt5_account") and lic["mt5_account"] != account:
         return jsonify({"status": "DENIED", "reason": "wrong_account"}), 200
 
     return jsonify({"status": "OK"}), 200
 
-# ---------------------- NOUVELLE ROUTE GET POUR L'EA ----------------------
+# ---------------------- GET pour l'EA actuel ----------------------
 
 @app.route("/api/check_license", methods=["GET"])
 def api_check_license():
     """
     Vérification simple GET utilisée par le nouvel EA.
 
-    Requête :
-        GET /api/check_license?license_key=XXXX
-
-    Réponse :
-        {
-          "ok": true,
-          "valid": true/false,
-          "reason": "ok|not_found|inactive|expired",
-          "email": "...",
-          "expires_at": 1234567890,
-          "expires_at_iso": "YYYY-MM-DDTHH:MM:SS"
-        }
+    GET /api/check_license?license_key=XXXX
     """
     license_key = str(request.args.get("license_key", "")).strip()
 
@@ -303,10 +293,8 @@ def api_check_license():
     expires_at = lic.get("expires_at") or 0
     expires_at = int(expires_at)
 
-    # format ISO
     expires_iso = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(expires_at)) if expires_at > 0 else None
 
-    # statut non actif
     if status != "active":
         return jsonify({
             "ok": True,
@@ -317,7 +305,6 @@ def api_check_license():
             "expires_at_iso": expires_iso,
         }), 200
 
-    # expirée
     if expires_at > 0 and now > expires_at:
         set_license_status(license_key, "expired")
         return jsonify({
@@ -329,7 +316,6 @@ def api_check_license():
             "expires_at_iso": expires_iso,
         }), 200
 
-    # valide
     return jsonify({
         "ok": True,
         "valid": True,
@@ -339,36 +325,92 @@ def api_check_license():
         "expires_at_iso": expires_iso,
     }), 200
 
-# ---------------------- WEBHOOK STRIPE ----------------------
+# ---------------------- Stripe Checkout (création paiement) ----------------------
+
+@app.route("/api/create_checkout", methods=["POST"])
+def api_create_checkout():
+    """
+    Crée une session Stripe Checkout pour un abonnement ProfitPro.
+
+    POST /api/create_checkout
+    Body JSON: { "email": "client@profitpro.io" }
+
+    Réponse:
+      { "ok": true, "checkout_url": "https://checkout.stripe.com/..." }
+    """
+    try:
+        data = request.get_json(force=True, silent=False)
+    except Exception:
+        return jsonify({"ok": False, "error": "bad_json"}), 400
+
+    email = str(data.get("email", "")).strip()
+
+    if not email:
+        return jsonify({"ok": False, "error": "missing_email"}), 400
+
+    if not STRIPE_SECRET_KEY or not STRIPE_PRICE_ID:
+        return jsonify({"ok": False, "error": "stripe_not_configured"}), 500
+
+    try:
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            customer_email=email,
+            line_items=[{
+                "price": STRIPE_PRICE_ID,
+                "quantity": 1,
+            }],
+            success_url=STRIPE_SUCCESS_URL + "?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=STRIPE_CANCEL_URL,
+        )
+    except Exception as e:
+        log.exception("Erreur Stripe lors de la création de la session Checkout")
+        return jsonify({"ok": False, "error": "stripe_error", "detail": str(e)}), 500
+
+    return jsonify({"ok": True, "checkout_url": session.url}), 200
+
+# ---------------------- Webhook Stripe ----------------------
 
 @app.route("/stripe/webhook", methods=["POST"])
 def stripe_webhook():
     """
     Webhook Stripe.
-    Utilisé pour créer automatiquement une licence après paiement validé.
+    Utilisé pour créer une licence quand un paiement est confirmé.
     """
     payload = request.data
-    sig_header = request.headers.get("Stripe-Signature")
-    endpoint_secret = STRIPE_WEBHOOK_SECRET
+    sig_header = request.headers.get("Stripe-Signature", "")
+
+    if not STRIPE_WEBHOOK_SECRET:
+        return jsonify({"ok": False, "error": "missing_webhook_secret"}), 500
 
     try:
         event = stripe.Webhook.construct_event(
-            payload, sig_header, endpoint_secret
+            payload,
+            sig_header,
+            STRIPE_WEBHOOK_SECRET,
         )
+    except stripe.error.SignatureVerificationError:
+        log.warning("Webhook Stripe: signature invalide")
+        return jsonify({"ok": False, "error": "bad_signature"}), 400
     except Exception as e:
-        log.error("Webhook Stripe error: %s", e)
-        return jsonify({"success": False}), 400
+        log.exception("Erreur parsing webhook Stripe")
+        return jsonify({"ok": False, "error": "webhook_error", "detail": str(e)}), 400
 
-    # Événement intéressant : Checkout terminé avec succès
-    if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
-        email = session.get("customer_details", {}).get("email")
+    event_type  = event.get("type")
+    data_object = event.get("data", {}).get("object", {})
 
+    if event_type == "checkout.session.completed":
+        email = (
+            data_object.get("customer_details", {}).get("email")
+            or data_object.get("customer_email")
+        )
         if email:
-            key = create_license(email, days_valid=30)
-            log.info("Licence auto créée via Stripe pour %s -> %s", email, key)
+            try:
+                key = create_license(email=email, days_valid=30)
+                log.info("Licence créée via Stripe pour %s -> %s", email, key)
+            except Exception:
+                log.exception("Erreur création licence depuis webhook")
 
-    return jsonify({"success": True}), 200
+    return jsonify({"ok": True}), 200
 
 # ------------------------- ping + Main --------------------------
 
