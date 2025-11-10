@@ -8,7 +8,7 @@ import time
 import logging
 import json
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from dotenv import load_dotenv
 import stripe
 
@@ -411,6 +411,13 @@ def stripe_webhook():
                 log.exception("Erreur création licence depuis webhook")
 
     return jsonify({"ok": True}), 200
+
+# ---------------------- Landing page (root) ----------------------
+
+@app.route("/")
+def landing_page():
+    """Sert le fichier us30.html à la racine du site."""
+    return send_from_directory(app.root_path, "us30.html")
 
 # ---------------------- Petite page de paiement ----------------------
 
