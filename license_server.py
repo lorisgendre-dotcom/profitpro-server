@@ -412,6 +412,75 @@ def stripe_webhook():
 
     return jsonify({"ok": True}), 200
 
+# ---------------------- Petite page de paiement ----------------------
+
+@app.route("/pay", methods=["GET"])
+def pay_page():
+    """
+    Page simple avec un champ email + bouton "Payer".
+    Elle appelle /api/create_checkout puis redirige vers Stripe Checkout.
+    """
+    return """
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>ProfitPro US30 - Paiement</title>
+</head>
+<body>
+  <h1>Abonnement ProfitPro US30</h1>
+  <p>Prix : 19,90 € / mois (environnement de test Stripe)</p>
+
+  <form id="pay-form">
+    <label>
+      Email MT5 / client :
+      <input type="email" id="email" required>
+    </label>
+    <button type="submit">Payer et s'abonner</button>
+  </form>
+
+  <p id="msg" style="color:red;"></p>
+
+  <script>
+    const form = document.getElementById('pay-form');
+    const msg  = document.getElementById('msg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.textContent = "";
+      const email = document.getElementById('email').value.trim();
+      if (!email) {
+        msg.textContent = "Merci de saisir un email.";
+        return;
+      }
+
+      try {
+        const resp = await fetch('/api/create_checkout', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ email: email })
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+          msg.textContent = "Erreur: " + (data.error || "inconnue");
+          console.error("Erreur /api/create_checkout:", data);
+          return;
+        }
+
+        // Redirection vers Stripe Checkout
+        window.location.href = data.checkout_url;
+      } catch (err) {
+        console.error(err);
+        msg.textContent = "Erreur réseau, réessayez plus tard.";
+      }
+    });
+  </script>
+</body>
+</html>
+"""
+
 # ------------------------- ping + Main --------------------------
 
 @app.route("/api/ping", methods=["GET"])
