@@ -317,12 +317,12 @@ def api_check_license():
         }), 200
 
     return jsonify({
-            "ok": True,
-            "valid": True,
-            "reason": "ok",
-            "email": email,
-            "expires_at": expires_at if expires_at > 0 else None,
-            "expires_at_iso": expires_iso,
+        "ok": True,
+        "valid": True,
+        "reason": "ok",
+        "email": email,
+        "expires_at": expires_at if expires_at > 0 else None,
+        "expires_at_iso": expires_iso,
     }), 200
 
 # ---------------------- Stripe Checkout (création paiement) ----------------------
