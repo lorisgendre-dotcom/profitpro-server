@@ -317,12 +317,12 @@ def api_check_license():
         }), 200
 
     return jsonify({
-        "ok": True,
-        "valid": True,
-        "reason": "ok",
-        "email": email,
-        "expires_at": expires_at if expires_at > 0 else None,
-        "expires_at_iso": expires_iso,
+            "ok": True,
+            "valid": True,
+            "reason": "ok",
+            "email": email,
+            "expires_at": expires_at if expires_at > 0 else None,
+            "expires_at_iso": expires_iso,
     }), 200
 
 # ---------------------- Stripe Checkout (création paiement) ----------------------
@@ -516,6 +516,19 @@ def success_page():
 </body>
 </html>
 """
+
+# ---------------------- Vérification licences ----------------------
+
+@app.route("/api/admin/list_licenses", methods=["GET"])
+def api_list_licenses():
+    """Retourne toutes les licences enregistrées (usage interne uniquement)."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM licenses ORDER BY created_at DESC")
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return jsonify(rows), 200
 
 # ------------------------- ping + Main --------------------------
 
