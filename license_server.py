@@ -424,85 +424,151 @@ def landing_page():
 @app.route("/pay", methods=["GET"])
 def pay_page():
     """
-    Page de paiement sombre, uniforme avec le site principal.
+    Page de paiement stylée, même thème que la landing.
+    Elle appelle /api/create_checkout puis redirige vers Stripe Checkout.
     """
     return """
 <!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>PROFITPRO – Paiement US30</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Abonnement PROFITPRO US30 – Paiement</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
     body {
-      margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(37,99,235,0.25), transparent 60%),
+        radial-gradient(circle at 0% 0%, rgba(37,99,235,0.30), transparent 55%),
+        radial-gradient(circle at 100% 0%, rgba(37,99,235,0.20), transparent 55%),
         #020617;
-      color: #e5e7eb;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
       min-height: 100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#e5e7eb;
+    }
+    .wrap {
+      width:100%;
+      max-width:420px;
+      padding:24px 16px;
     }
     .card {
-      background: rgba(15,23,42,0.95);
-      border: 1px solid rgba(37,99,235,0.4);
-      border-radius: 16px;
-      padding: 28px 24px;
-      box-shadow: 0 0 60px rgba(37,99,235,0.2);
-      max-width: 400px;
-      width: 90%;
-      text-align: center;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(37,99,235,0.35), transparent 60%),
+        radial-gradient(circle at 120% 0%, rgba(56,189,248,0.26), transparent 60%),
+        #020617;
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,0.35);
+      padding:26px 22px 24px;
+      box-shadow:0 22px 70px rgba(15,23,42,0.95);
     }
-    img {
-      width: 60px;
-      margin-bottom: 12px;
-      filter: drop-shadow(0 0 10px rgba(37,99,235,0.7));
-      border-radius: 8px;
+    .logo {
+      display:flex;
+      justify-content:center;
+      margin-bottom:16px;
     }
-    h1 { font-size: 20px; margin-bottom: 10px; }
-    p { font-size: 14px; color: #9ca3af; margin-bottom: 20px; }
-    input {
-      width: 100%;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid rgba(148,163,184,0.3);
-      background: #0f172a;
-      color: #e5e7eb;
-      font-size: 14px;
-      margin-bottom: 16px;
+    .logo img {
+      height:48px;
+      width:auto;
+      border-radius:14px;
+      box-shadow:0 0 25px rgba(37,99,235,0.9);
     }
-    button {
-      background: linear-gradient(135deg, #2563eb, #4f46e5);
-      color: white;
-      border: none;
-      border-radius: 999px;
-      padding: 10px 18px;
-      font-weight: 600;
-      cursor: pointer;
-      width: 100%;
-      transition: transform 0.08s ease, box-shadow 0.08s ease;
+    h1 {
+      font-size:20px;
+      text-align:center;
+      margin-bottom:6px;
     }
-    button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 0 25px rgba(37,99,235,0.6);
+    .price {
+      font-size:13px;
+      text-align:center;
+      color:#9ca3af;
+      margin-bottom:18px;
     }
-    #msg { color: #f87171; font-size: 13px; margin-top: 10px; }
+    .field-label {
+      font-size:13px;
+      color:#9ca3af;
+      margin-bottom:6px;
+    }
+    .input {
+      width:100%;
+      padding:10px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.45);
+      background:rgba(15,23,42,0.95);
+      color:#e5e7eb;
+      font-size:14px;
+      outline:none;
+    }
+    .input:focus {
+      border-color:#3b82f6;
+      box-shadow:0 0 0 1px rgba(59,130,246,0.6);
+    }
+    .btn {
+      margin-top:14px;
+      width:100%;
+      padding:11px 18px;
+      border-radius:999px;
+      border:1px solid rgba(59,130,246,0.7);
+      background:linear-gradient(135deg,#2563eb,#4f46e5);
+      color:#f9fafb;
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+      box-shadow:0 18px 55px rgba(37,99,235,0.75);
+      transition:transform 0.08s ease, box-shadow 0.08s ease;
+    }
+    .btn:hover {
+      transform:translateY(-1px);
+      box-shadow:0 22px 70px rgba(37,99,235,0.9);
+    }
+    .msg {
+      margin-top:10px;
+      font-size:12px;
+      color:#f97373;
+      min-height:16px;
+    }
+    .note {
+      margin-top:12px;
+      font-size:11px;
+      color:#9ca3af;
+      text-align:center;
+    }
+    .back {
+      margin-top:14px;
+      text-align:center;
+      font-size:12px;
+    }
+    .back a { color:#93c5fd; text-decoration:none; }
+    .back a:hover { text-decoration:underline; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <img src="/static/logo.jpeg" alt="PROFITPRO">
-    <h1>Abonnement PROFITPRO US30</h1>
-    <p>19,90 € / mois — environnement de test Stripe</p>
-    <form id="pay-form">
-      <input type="email" id="email" placeholder="Ton email MT5" required>
-      <button type="submit">Payer et s'abonner</button>
-    </form>
-    <div id="msg"></div>
+  <div class="wrap">
+    <div class="card">
+      <div class="logo">
+        <img src="/static/logo.jpeg" alt="PROFITPRO">
+      </div>
+      <h1>Abonnement PROFITPRO US30</h1>
+      <p class="price">19,90 € / mois — environnement de test Stripe</p>
+
+      <form id="pay-form">
+        <div class="field">
+          <div class="field-label">Ton email MT5</div>
+          <input type="email" id="email" class="input" placeholder="email utilisé sur MT5" required>
+        </div>
+        <button type="submit" class="btn">Payer et s'abonner</button>
+        <div id="msg" class="msg"></div>
+      </form>
+
+      <p class="note">
+        Le paiement est géré par Stripe. Une licence sera créée automatiquement
+        pour l'email saisi une fois le paiement validé.
+      </p>
+      <div class="back">
+        <a href="/">← Revenir à la page d'accueil</a>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -533,7 +599,6 @@ def pay_page():
           return;
         }
 
-        // Redirection vers Stripe Checkout
         window.location.href = data.checkout_url;
       } catch (err) {
         console.error(err);
@@ -552,23 +617,105 @@ def success_page():
     Stripe rajoute ?session_id=cs_test_xxx dans l'URL.
     """
     session_id = request.args.get("session_id", "")
-    return f"""
+    return """
 <!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Paiement confirmé - ProfitPro US30</title>
+  <title>Paiement confirmé – PROFITPRO US30</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(37,99,235,0.30), transparent 55%),
+        radial-gradient(circle at 100% 0%, rgba(37,99,235,0.20), transparent 55%),
+        #020617;
+      min-height: 100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#e5e7eb;
+    }
+    .wrap {
+      width:100%;
+      max-width:420px;
+      padding:24px 16px;
+    }
+    .card {
+      background:
+        radial-gradient(circle at 0% 0%, rgba(37,99,235,0.35), transparent 60%),
+        radial-gradient(circle at 120% 0%, rgba(56,189,248,0.26), transparent 60%),
+        #020617;
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,0.35);
+      padding:26px 22px 24px;
+      box-shadow:0 22px 70px rgba(15,23,42,0.95);
+      text-align:center;
+    }
+    .logo {
+      display:flex;
+      justify-content:center;
+      margin-bottom:14px;
+    }
+    .logo img {
+      height:40px;
+      width:auto;
+      border-radius:12px;
+      box-shadow:0 0 20px rgba(37,99,235,0.9);
+    }
+    h1 {
+      font-size:20px;
+      margin-bottom:6px;
+    }
+    .txt {
+      font-size:13px;
+      color:#9ca3af;
+      margin-bottom:14px;
+    }
+    .btn {
+      display:inline-block;
+      margin-top:4px;
+      padding:9px 18px;
+      border-radius:999px;
+      border:1px solid rgba(59,130,246,0.7);
+      background:linear-gradient(135deg,#2563eb,#4f46e5);
+      color:#f9fafb;
+      font-size:13px;
+      font-weight:600;
+      cursor:pointer;
+      box-shadow:0 14px 45px rgba(37,99,235,0.75);
+      text-decoration:none;
+    }
+    .btn:hover {
+      box-shadow:0 18px 60px rgba(37,99,235,0.9);
+    }
+    .session {
+      margin-top:14px;
+      font-size:11px;
+      color:#6b7280;
+      word-break:break-all;
+    }
+  </style>
 </head>
 <body>
-  <h1>Paiement confirmé ✅</h1>
-  <p>Merci. Ton abonnement ProfitPro US30 est bien enregistré (environnement de test).</p>
-  <p>Tu recevras ta licence automatiquement à l'adresse email utilisée lors du paiement.</p>
-  <p>Tu peux maintenant fermer cette page ou revenir au site :</p>
-  <p><a href="/">Revenir à la page d'accueil</a></p>
-  <hr>
-  <p style="font-size:12px;color:#666;">
-    Session Stripe : {session_id}
-  </p>
+  <div class="wrap">
+    <div class="card">
+      <div class="logo">
+        <img src="/static/logo.jpeg" alt="PROFITPRO">
+      </div>
+      <h1>Paiement confirmé ✅</h1>
+      <p class="txt">
+        Merci, ton abonnement PROFITPRO US30 est bien enregistré (environnement de test Stripe).
+        Une licence sera créée pour l'adresse email utilisée lors du paiement.
+      </p>
+      <a href="/" class="btn">Revenir à la page d'accueil</a>
+      <p class="session">
+        Session Stripe : """ + session_id + """
+      </p>
+    </div>
+  </div>
 </body>
 </html>
 """
