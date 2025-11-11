@@ -419,7 +419,7 @@ def landing_page():
     """Sert le fichier us30.html à la racine du site."""
     return send_from_directory(app.root_path, "us30.html")
 
-# ---------------------- Petite page de paiement ----------------------
+# ---------------------- Petite page de paiement + page succès ----------------------
 
 @app.route("/pay", methods=["GET"])
 def pay_page():
@@ -484,6 +484,35 @@ def pay_page():
       }
     });
   </script>
+</body>
+</html>
+"""
+
+
+@app.route("/success", methods=["GET"])
+def success_page():
+    """
+    Page affichée après un paiement validé Stripe.
+    Stripe rajoute ?session_id=cs_test_xxx dans l'URL.
+    """
+    session_id = request.args.get("session_id", "")
+    return f"""
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Paiement confirmé - ProfitPro US30</title>
+</head>
+<body>
+  <h1>Paiement confirmé ✅</h1>
+  <p>Merci. Ton abonnement ProfitPro US30 est bien enregistré (environnement de test).</p>
+  <p>Tu recevras ta licence automatiquement à l'adresse email utilisée lors du paiement.</p>
+  <p>Tu peux maintenant fermer cette page ou revenir au site :</p>
+  <p><a href="/">Revenir à la page d'accueil</a></p>
+  <hr>
+  <p style="font-size:12px;color:#666;">
+    Session Stripe : {session_id}
+  </p>
 </body>
 </html>
 """
