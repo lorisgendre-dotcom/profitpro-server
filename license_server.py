@@ -424,29 +424,86 @@ def landing_page():
 @app.route("/pay", methods=["GET"])
 def pay_page():
     """
-    Page simple avec un champ email + bouton "Payer".
-    Elle appelle /api/create_checkout puis redirige vers Stripe Checkout.
+    Page de paiement sombre, uniforme avec le site principal.
     """
     return """
 <!doctype html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>ProfitPro US30 - Paiement</title>
+  <title>PROFITPRO – Paiement US30</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(37,99,235,0.25), transparent 60%),
+        #020617;
+      color: #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: rgba(15,23,42,0.95);
+      border: 1px solid rgba(37,99,235,0.4);
+      border-radius: 16px;
+      padding: 28px 24px;
+      box-shadow: 0 0 60px rgba(37,99,235,0.2);
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+    img {
+      width: 60px;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 0 10px rgba(37,99,235,0.7));
+      border-radius: 8px;
+    }
+    h1 { font-size: 20px; margin-bottom: 10px; }
+    p { font-size: 14px; color: #9ca3af; margin-bottom: 20px; }
+    input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(148,163,184,0.3);
+      background: #0f172a;
+      color: #e5e7eb;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    button {
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
+      color: white;
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.08s ease, box-shadow 0.08s ease;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 25px rgba(37,99,235,0.6);
+    }
+    #msg { color: #f87171; font-size: 13px; margin-top: 10px; }
+  </style>
 </head>
 <body>
-  <h1>Abonnement ProfitPro US30</h1>
-  <p>Prix : 19,90 € / mois (environnement de test Stripe)</p>
-
-  <form id="pay-form">
-    <label>
-      Email MT5 / client :
-      <input type="email" id="email" required>
-    </label>
-    <button type="submit">Payer et s'abonner</button>
-  </form>
-
-  <p id="msg" style="color:red;"></p>
+  <div class="card">
+    <img src="/static/logo.jpeg" alt="PROFITPRO">
+    <h1>Abonnement PROFITPRO US30</h1>
+    <p>19,90 € / mois — environnement de test Stripe</p>
+    <form id="pay-form">
+      <input type="email" id="email" placeholder="Ton email MT5" required>
+      <button type="submit">Payer et s'abonner</button>
+    </form>
+    <div id="msg"></div>
+  </div>
 
   <script>
     const form = document.getElementById('pay-form');
@@ -480,14 +537,13 @@ def pay_page():
         window.location.href = data.checkout_url;
       } catch (err) {
         console.error(err);
-        msg.textContent = "Erreur réseau, réessayez plus tard.";
+        msg.textContent = "Erreur réseau, réessaie plus tard.";
       }
     });
   </script>
 </body>
 </html>
 """
-
 
 @app.route("/success", methods=["GET"])
 def success_page():
